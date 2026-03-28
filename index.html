@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Рисовалка</title>
+  <style>
+    body {
+      text-align: center;
+      font-family: Arial;
+    }
+    canvas {
+      border: 2px solid black;
+      touch-action: none;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>🎨 Рисуй слово</h2>
+
+<canvas id="canvas" width="300" height="300"></canvas>
+
+<br>
+
+<button onclick="clearCanvas()">Очистить</button>
+<button onclick="sendDrawing()">Отправить</button>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let drawing = false;
+
+// мышка
+canvas.addEventListener("mousedown", () => drawing = true);
+canvas.addEventListener("mouseup", () => drawing = false);
+canvas.addEventListener("mousemove", draw);
+
+// телефон (тач)
+canvas.addEventListener("touchstart", () => drawing = true);
+canvas.addEventListener("touchend", () => drawing = false);
+canvas.addEventListener("touchmove", drawTouch);
+
+function draw(e) {
+  if (!drawing) return;
+  ctx.fillRect(e.offsetX, e.offsetY, 4, 4);
+}
+
+function drawTouch(e) {
+  e.preventDefault();
+  if (!drawing) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+
+  const x = touch.clientX - rect.left;
+  const y = touch.clientY - rect.top;
+
+  ctx.fillRect(x, y, 4, 4);
+}
+
+function clearCanvas() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// отправка в Telegram
+function sendDrawing() {
+  const data = canvas.toDataURL();
+
+  Telegram.WebApp.sendData(data);
+  Telegram.WebApp.close();
+}
+</script>
+
+</body>
+</html>
