@@ -2,82 +2,95 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Рисовалка</title>
+  <title>Рисовалка для Крокодила</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
-    body {
-      text-align: center;
-      font-family: Arial;
-    }
-    canvas {
-      border: 2px solid black;
-      touch-action: none;
-    }
-    button {
-      margin-top: 10px;
-      padding: 10px;
-      font-size: 16px;
-    }
+    body { text-align: center; font-family: sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
+    canvas { border: 2px solid #333; background: #fff; cursor: crosshair; touch-action: none; border-radius: 10px; }
+    .controls { margin-top: 15px; }
+    button { padding: 10px 20px; font-size: 16px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; }
+    .btn-clear { background-color: #f44336; }
+    .btn-send { background-color: #4CAF50; }
   </style>
 </head>
 <body>
 
-<h2>🎨 Рисуй слово</h2>
+  <h2>🎨 Рисуй слово</h2>
+  <canvas id="canvas" width="300" height="400"></canvas>
 
-<canvas id="canvas" width="300" height="300"></canvas>
+  <div class="controls">
+    <button class="btn-clear" onclick="clearCanvas()">Очистить</button>
+    <button class="btn-send" onclick="sendDrawing()">Отправить</button>
+  </div>
 
-<br>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<button onclick="clearCanvas()">Очистить</button>
-<button onclick="sendDrawing()">Отправить</button>
+  <script>
+    const tg = window.Telegram.WebApp;
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    let drawing = false;
 
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+    // Настройки кисти
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
 
-<script>
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+    // Функция получения координат
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return [clientX - rect.left, clientY - rect.top];
+    }
 
-let drawing = false;
+    function startDrawing(e) {
+      drawing = true;
+      const [x, y] = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    }
 
-// мышка
-canvas.addEventListener("mousedown", () => drawing = true);
-canvas.addEventListener("mouseup", () => drawing = false);
-canvas.addEventListener("mousemove", draw);
+    function doDrawing(e) {
+      if (!drawing) return;
+      const [x, y] = getPos(e);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    }
 
-// телефон (тач)
-canvas.addEventListener("touchstart", () => drawing = true);
-canvas.addEventListener("touchend", () => drawing = false);
-canvas.addEventListener("touchmove", drawTouch);
+    function stopDrawing() {
+      drawing = false;
+    }
 
-function draw(e) {
-  if (!drawing) return;
-  ctx.fillRect(e.offsetX, e.offsetY, 4, 4);
-}
+    // Слушатели для мышки
+    canvas.addEventListener("mousedown", startDrawing);
+    canvas.addEventListener("mousemove", doDrawing);
+    window.addEventListener("mouseup", stopDrawing);
 
-function drawTouch(e) {
-  e.preventDefault();
-  if (!drawing) return;
+    // Слушатели для сенсора (телефона)
+    canvas.addEventListener("touchstart", (e) => { startDrawing(e); e.preventDefault(); });
+    canvas.addEventListener("touchmove", (e) => { doDrawing(e); e.preventDefault(); });
+    canvas.addEventListener("touchend", stopDrawing);
 
-  const rect = canvas.getBoundingClientRect();
-  const touch = e.touches[0];
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
 
-  const x = touch.clientX - rect.left;
-  const y = touch.clientY - rect.top;
+    // 2. ОТПРАВКА ДАННЫХ В БОТА
+    function sendDrawing() {
+      const dataURL = canvas.toDataURL("image/png");
 
-  ctx.fillRect(x, y, 4, 4);
-}
+      if (tg.sendData) {
+        tg.sendData(dataURL); // Эта команда отправляет картинку в бота
+        tg.close();           // Закрывает Web App
+      } else {
+        alert("Ошибка: Открой через Telegram!");
+      }
+    }
 
-function clearCanvas() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-}
-
-// отправка в Telegram
-function sendDrawing() {
-  const data = canvas.toDataURL();
-
-  Telegram.WebApp.sendData(data);
-  Telegram.WebApp.close();
-}
-</script>
-
+    // Сообщаем Telegram, что приложение готово
+    tg.ready();
+    tg.expand(); // Разворачиваем на весь экран
+  </script>
 </body>
 </html>
