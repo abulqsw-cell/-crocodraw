@@ -31,12 +31,10 @@
     const ctx = canvas.getContext("2d");
     let drawing = false;
 
-    // Настройки кисти
     ctx.strokeStyle = "black";
     ctx.lineWidth = 4;
     ctx.lineCap = "round";
 
-    // Функция получения координат
     function getPos(e) {
       const rect = canvas.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -62,12 +60,10 @@
       drawing = false;
     }
 
-    // Слушатели для мышки
     canvas.addEventListener("mousedown", startDrawing);
     canvas.addEventListener("mousemove", doDrawing);
     window.addEventListener("mouseup", stopDrawing);
 
-    // Слушатели для сенсора (телефона)
     canvas.addEventListener("touchstart", (e) => { startDrawing(e); e.preventDefault(); });
     canvas.addEventListener("touchmove", (e) => { doDrawing(e); e.preventDefault(); });
     canvas.addEventListener("touchend", stopDrawing);
@@ -76,21 +72,22 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    // 2. ОТПРАВКА ДАННЫХ В БОТА
     function sendDrawing() {
-      const dataURL = canvas.toDataURL("image/png");
-
-      if (tg.sendData) {
-        tg.sendData(dataURL); // Эта команда отправляет картинку в бота
-        tg.close();           // Закрывает Web App
-      } else {
-        alert("Ошибка: Открой через Telegram!");
+      try {
+        const dataURL = canvas.toDataURL("image/png");
+        if (tg && tg.sendData) {
+            tg.sendData(dataURL);
+            tg.close();
+        } else {
+            alert("Ошибка: WebApp SDK не загружен или кнопка открыта не через ReplyKeyboard");
+        }
+      } catch (err) {
+        alert("Ошибка при отправке: " + err.message);
       }
     }
 
-    // Сообщаем Telegram, что приложение готово
     tg.ready();
-    tg.expand(); // Разворачиваем на весь экран
+    tg.expand();
   </script>
 </body>
 </html>
