@@ -2,88 +2,62 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Croco Draw</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Croco</title>
   <style>
-    body { text-align: center; font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 10px; }
-    canvas { border: 2px solid #333; background: #fff; border-radius: 10px; touch-action: none; width: 100%; max-width: 300px; }
+    body { text-align: center; font-family: sans-serif; background: #eee; margin: 0; padding: 10px; }
+    /* Маленький холст = мало данных */
+    canvas { border: 2px solid #000; background: #fff; cursor: crosshair; touch-action: none; width: 200px; height: 200px; }
     .btns { margin-top: 10px; }
-    button { padding: 10px 20px; border: none; border-radius: 5px; color: white; font-weight: bold; cursor: pointer; margin: 5px; }
-    .clear { background: #e74c3c; }
-    .send { background: #2ecc71; }
+    button { padding: 10px; border: none; border-radius: 5px; color: white; font-weight: bold; margin: 5px; }
+    .clr { background: #ff4d4d; }
+    .snd { background: #2ecc71; }
   </style>
 </head>
 <body>
-  <h3>🎨 Рисуй слово</h3>
-  <canvas id="canvas" width="300" height="400"></canvas>
+  <canvas id="c" width="200" height="200"></canvas>
   <div class="btns">
-    <button class="clear" onclick="clearCanvas()">Очистить</button>
-    <button class="send" onclick="sendDrawing()">Отправить</button>
+    <button class="clr" onclick="ctx.clearRect(0,0,200,200)">Очистить</button>
+    <button class="snd" onclick="send()">ОТПРАВИТЬ</button>
   </div>
-
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
     const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
-
-    const canvas = document.getElementById("canvas");
+    const canvas = document.getElementById("c");
     const ctx = canvas.getContext("2d");
-    let drawing = false;
+    let draw = false;
+    ctx.lineWidth = 3; ctx.lineCap = "round";
 
-    ctx.lineWidth = 5;
-    ctx.lineCap = "round";
-    ctx.strokeStyle = "black";
-
-    function getPos(e) {
-      const rect = canvas.getBoundingClientRect();
-      const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-      const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-      return [x * (canvas.width / rect.width), y * (canvas.height / rect.height)];
-    }
-
-    canvas.onmousedown = canvas.ontouchstart = (e) => {
-      drawing = true;
-      const [x, y] = getPos(e);
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      if (e.type === 'touchstart') e.preventDefault();
+    const get = (e) => {
+      const r = canvas.getBoundingClientRect();
+      const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+      const y = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+      return [x, y];
     };
 
-    canvas.onmousemove = canvas.ontouchmove = (e) => {
-      if (!drawing) return;
-      const [x, y] = getPos(e);
-      ctx.lineTo(x, y);
-      ctx.stroke();
-      if (e.type === 'touchmove') e.preventDefault();
-    };
+    canvas.onmousedown = canvas.ontouchstart = (e) => { draw = true; ctx.beginPath(); ctx.moveTo(...get(e)); };
+    canvas.onmousemove = canvas.ontouchmove = (e) => { if(draw) { ctx.lineTo(...get(e)); ctx.stroke(); } };
+    window.onmouseup = window.ontouchend = () => draw = false;
 
-    window.onmouseup = window.ontouchend = () => drawing = false;
-
-    function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
-
-    function sendDrawing() {
-      // Создаем временный холст для белого фона
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = canvas.width;
-      tempCanvas.height = canvas.height;
-      const tempCtx = tempCanvas.getContext('2d');
-
-      // Белая подложка
-      tempCtx.fillStyle = "white";
-      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-      tempCtx.drawImage(canvas, 0, 0);
-
-      // КРИТИЧНО: Формат JPEG и качество 0.05 (минимальный вес)
-      const data = tempCanvas.toDataURL("image/jpeg", 0.05);
-
-      try {
+    function send() {
+      const tmp = document.createElement('canvas');
+      tmp.width = 200; tmp.height = 200;
+      const tCtx = tmp.getContext('2d');
+      tCtx.fillStyle = "white";
+      tCtx.fillRect(0,0,200,200);
+      tCtx.drawImage(canvas, 0, 0);
+      
+      // Качество 0.01 — это супер-сжатие. Картинка будет весить копейки.
+      const data = tmp.toDataURL("image/jpeg", 0.01);
+      
+      if (data.length > 4000) {
+        alert("Слишком много линий! Сотри часть.");
+      } else {
         tg.sendData(data);
         tg.close();
-      } catch (err) {
-        alert("Ошибка: Рисунок слишком сложный! Очисти и нарисуй проще.");
       }
     }
+    tg.expand();
   </script>
 </body>
 </html>
