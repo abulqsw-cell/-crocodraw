@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
     body { text-align: center; font-family: sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
-    canvas { border: 2px solid #333; background: #fff; cursor: crosshair; touch-action: none; border-radius: 10px; }
+    canvas { border: 2px solid #333; background: #fff; cursor: crosshair; touch-action: none; border-radius: 10px; width: 100%; max-width: 300px; height: auto; }
     .controls { margin-top: 15px; }
     button { padding: 10px 20px; font-size: 16px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; }
     .btn-clear { background-color: #f44336; }
@@ -14,17 +14,14 @@
   </style>
 </head>
 <body>
-
   <h2>🎨 Рисуй слово</h2>
   <canvas id="canvas" width="300" height="400"></canvas>
-
   <div class="controls">
     <button class="btn-clear" onclick="clearCanvas()">Очистить</button>
-    <button class="btn-send" onclick="sendDrawing()">Отправить</button>
+    <button class="btn-send" id="sendBtn" onclick="sendDrawing()">Отправить</button>
   </div>
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
   <script>
     const tg = window.Telegram.WebApp;
     const canvas = document.getElementById("canvas");
@@ -39,53 +36,40 @@
       const rect = canvas.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      return [clientX - rect.left, clientY - rect.top];
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return [(clientX - rect.left) * scaleX, (clientY - rect.top) * scaleY];
     }
 
-    function startDrawing(e) {
-      drawing = true;
-      const [x, y] = getPos(e);
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-    }
-
-    function doDrawing(e) {
-      if (!drawing) return;
-      const [x, y] = getPos(e);
-      ctx.lineTo(x, y);
-      ctx.stroke();
-    }
-
-    function stopDrawing() {
-      drawing = false;
-    }
+    function startDrawing(e) { drawing = true; const [x, y] = getPos(e); ctx.beginPath(); ctx.moveTo(x, y); }
+    function doDrawing(e) { if (!drawing) return; const [x, y] = getPos(e); ctx.lineTo(x, y); ctx.stroke(); }
+    function stopDrawing() { drawing = false; }
 
     canvas.addEventListener("mousedown", startDrawing);
     canvas.addEventListener("mousemove", doDrawing);
     window.addEventListener("mouseup", stopDrawing);
-
     canvas.addEventListener("touchstart", (e) => { startDrawing(e); e.preventDefault(); });
     canvas.addEventListener("touchmove", (e) => { doDrawing(e); e.preventDefault(); });
     canvas.addEventListener("touchend", stopDrawing);
 
-    function clearCanvas() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
+    function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
     function sendDrawing() {
-      try {
-        const dataURL = canvas.toDataURL("image/png");
-        if (tg && tg.sendData) {
-            tg.sendData(dataURL);
-            tg.close();
-        } else {
-            alert("Ошибка: WebApp SDK не загружен или кнопка открыта не через ReplyKeyboard");
-        }
-      } catch (err) {
-        alert("Ошибка при отправке: " + err.message);
+      const dataURL = canvas.toDataURL("image/png");
+      const sendBtn = document.getElementById('sendBtn');
+      sendBtn.disabled = true;
+      sendBtn.innerText = 'Отправка...';
+
+      // Так как картинка большая, мы шлем короткий сигнал боту, 
+      // а саму картинку "закрываем" в WebApp. 
+      // В твоем случае проще всего уменьшить качество картинки, чтобы она влезла в 4КБ
+      const smallDataURL = canvas.toDataURL("image/jpeg", 0.1); 
+      
+      if (tg.sendData) {
+        tg.sendData(smallDataURL); 
+        tg.close();
       }
     }
-
     tg.ready();
     tg.expand();
   </script>
