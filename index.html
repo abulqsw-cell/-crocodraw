@@ -2,88 +2,87 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Рисовалка для Крокодила</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Крокодил</title>
   <style>
-    body { text-align: center; font-family: sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
-    canvas { border: 2px solid #333; background: #fff; cursor: crosshair; touch-action: none; border-radius: 10px; width: 100%; max-width: 300px; height: 400px; display: block; margin: 0 auto; }
-    .controls { margin-top: 15px; }
-    button { padding: 12px 24px; font-size: 16px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; }
-    .btn-clear { background-color: #f44336; }
-    .btn-send { background-color: #4CAF50; }
+    body { text-align: center; font-family: sans-serif; background: #f0f0f0; margin: 0; padding: 10px; overflow: hidden; }
+    canvas { border: 2px solid #333; background: #fff; border-radius: 10px; touch-action: none; width: 100%; max-width: 300px; height: 350px; }
+    .btns { margin-top: 15px; display: flex; justify-content: center; gap: 10px; }
+    button { padding: 12px 20px; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; }
+    .clear { background: #ff4d4d; }
+    .send { background: #2ecc71; }
   </style>
 </head>
 <body>
-
-  <h2>🎨 Рисуй слово</h2>
-  <canvas id="canvas" width="300" height="400"></canvas>
-
-  <div class="controls">
-    <button class="btn-clear" onclick="clearCanvas()">Очистить</button>
-    <button class="btn-send" onclick="sendDrawing()">Отправить</button>
+  <h3>🎨 Нарисуй слово</h3>
+  <canvas id="canvas" width="300" height="350"></canvas>
+  <div class="btns">
+    <button class="clear" onclick="clearCanvas()">Очистить</button>
+    <button class="send" onclick="send()">Отправить</button>
   </div>
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
   <script>
     const tg = window.Telegram.WebApp;
     tg.ready();
     tg.expand();
 
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
     let drawing = false;
 
-    ctx.strokeStyle = "black";
-    ctx.lineWidth = 5;
-    ctx.lineCap = "round";
+    ctx.lineWidth = 4;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#000';
 
-    function getPos(e) {
+    function getXY(e) {
       const rect = canvas.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      return [
-        (clientX - rect.left) * (canvas.width / rect.width),
-        (clientY - rect.top) * (canvas.height / rect.height)
-      ];
+      const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+      const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+      return [x * (canvas.width / rect.width), y * (canvas.height / rect.height)];
     }
 
-    function startDrawing(e) { drawing = true; const [x, y] = getPos(e); ctx.beginPath(); ctx.moveTo(x, y); e.preventDefault(); }
-    function doDrawing(e) { if (!drawing) return; const [x, y] = getPos(e); ctx.lineTo(x, y); ctx.stroke(); e.preventDefault(); }
-    function stopDrawing() { drawing = false; }
+    canvas.onmousedown = canvas.ontouchstart = (e) => {
+      drawing = true;
+      const [x, y] = getXY(e);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      if(e.type === 'touchstart') e.preventDefault();
+    };
 
-    canvas.addEventListener("mousedown", startDrawing);
-    canvas.addEventListener("mousemove", doDrawing);
-    window.addEventListener("mouseup", stopDrawing);
-    canvas.addEventListener("touchstart", startDrawing, {passive: false});
-    canvas.addEventListener("touchmove", doDrawing, {passive: false});
-    canvas.addEventListener("touchend", stopDrawing);
+    canvas.onmousemove = canvas.ontouchmove = (e) => {
+      if (!drawing) return;
+      const [x, y] = getXY(e);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      if(e.type === 'touchmove') e.preventDefault();
+    };
+
+    window.onmouseup = window.ontouchend = () => drawing = false;
 
     function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
-    function sendDrawing() {
+    function send() {
+      // 1. Создаем временный холст для белого фона
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tCtx = tempCanvas.getContext('2d');
+
+      // 2. Заливаем белым
+      tCtx.fillStyle = '#ffffff';
+      tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      tCtx.drawImage(canvas, 0, 0);
+
+      // 3. СЖИМАЕМ КАРТИНКУ (качество 0.1, чтобы влезло в 4КБ)
+      const data = tempCanvas.toDataURL('image/jpeg', 0.1);
+      
       try {
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = canvas.width;
-        tempCanvas.height = canvas.height;
-        const tempCtx = tempCanvas.getContext('2d');
-
-        // Белый фон
-        tempCtx.fillStyle = "white";
-        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-        tempCtx.drawImage(canvas, 0, 0);
-
-        // Сжатие (чтобы влезло в лимит 4КБ)
-        const dataURL = tempCanvas.toDataURL("image/jpeg", 0.1); 
-
-        if (tg.sendData) {
-          tg.sendData(dataURL);
-          tg.close();
-        } else {
-          alert("Ошибка: SDK Телеграма не найден!");
-        }
-      } catch (err) {
-        alert("Ошибка при отправке: " + err.message);
+        tg.sendData(data);
+        tg.close();
+      } catch (e) {
+        alert("Ошибка WebApp: " + e.message);
       }
     }
   </script>
