@@ -8,28 +8,32 @@
     body { text-align: center; font-family: sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
     canvas { border: 2px solid #333; background: #fff; cursor: crosshair; touch-action: none; border-radius: 10px; width: 100%; max-width: 300px; height: auto; }
     .controls { margin-top: 15px; }
-    button { padding: 10px 20px; font-size: 16px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; }
+    button { padding: 10px 20px; font-size: 16px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; }
     .btn-clear { background-color: #f44336; }
     .btn-send { background-color: #4CAF50; }
   </style>
 </head>
 <body>
+
   <h2>🎨 Рисуй слово</h2>
   <canvas id="canvas" width="300" height="400"></canvas>
+
   <div class="controls">
     <button class="btn-clear" onclick="clearCanvas()">Очистить</button>
-    <button class="btn-send" id="sendBtn" onclick="sendDrawing()">Отправить</button>
+    <button class="btn-send" onclick="sendDrawing()">Отправить</button>
   </div>
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
   <script>
     const tg = window.Telegram.WebApp;
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     let drawing = false;
 
+    // Настройки кисти
     ctx.strokeStyle = "black";
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 5;
     ctx.lineCap = "round";
 
     function getPos(e) {
@@ -55,21 +59,30 @@
     function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
     function sendDrawing() {
-      const dataURL = canvas.toDataURL("image/png");
-      const sendBtn = document.getElementById('sendBtn');
-      sendBtn.disabled = true;
-      sendBtn.innerText = 'Отправка...';
+      // СОЗДАЕМ БЕЛЫЙ ФОН ПЕРЕД ОТПРАВКОЙ
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
 
-      // Так как картинка большая, мы шлем короткий сигнал боту, 
-      // а саму картинку "закрываем" в WebApp. 
-      // В твоем случае проще всего уменьшить качество картинки, чтобы она влезла в 4КБ
-      const smallDataURL = canvas.toDataURL("image/jpeg", 0.1); 
+      // Заливаем белым
+      tempCtx.fillStyle = "white";
+      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
       
+      // Накладываем твой рисунок сверху
+      tempCtx.drawImage(canvas, 0, 0);
+
+      // Сжимаем в JPEG (он легкий и всегда на белом фоне)
+      const dataURL = tempCanvas.toDataURL("image/jpeg", 0.3);
+
       if (tg.sendData) {
-        tg.sendData(smallDataURL); 
+        tg.sendData(dataURL);
         tg.close();
+      } else {
+          alert("Ошибка: Открой через кнопку в боте!");
       }
     }
+
     tg.ready();
     tg.expand();
   </script>
