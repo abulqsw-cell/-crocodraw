@@ -6,9 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
     body { text-align: center; font-family: sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
-    canvas { border: 2px solid #333; background: #fff; cursor: crosshair; touch-action: none; border-radius: 10px; width: 100%; max-width: 300px; height: auto; }
+    canvas { border: 2px solid #333; background: #fff; cursor: crosshair; touch-action: none; border-radius: 10px; width: 100%; max-width: 300px; height: 400px; display: block; margin: 0 auto; }
     .controls { margin-top: 15px; }
-    button { padding: 10px 20px; font-size: 16px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; }
+    button { padding: 12px 24px; font-size: 16px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; }
     .btn-clear { background-color: #f44336; }
     .btn-send { background-color: #4CAF50; }
   </style>
@@ -27,11 +27,13 @@
 
   <script>
     const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     let drawing = false;
 
-    // Настройки кисти
     ctx.strokeStyle = "black";
     ctx.lineWidth = 5;
     ctx.lineCap = "round";
@@ -40,51 +42,50 @@
       const rect = canvas.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      return [(clientX - rect.left) * scaleX, (clientY - rect.top) * scaleY];
+      return [
+        (clientX - rect.left) * (canvas.width / rect.width),
+        (clientY - rect.top) * (canvas.height / rect.height)
+      ];
     }
 
-    function startDrawing(e) { drawing = true; const [x, y] = getPos(e); ctx.beginPath(); ctx.moveTo(x, y); }
-    function doDrawing(e) { if (!drawing) return; const [x, y] = getPos(e); ctx.lineTo(x, y); ctx.stroke(); }
+    function startDrawing(e) { drawing = true; const [x, y] = getPos(e); ctx.beginPath(); ctx.moveTo(x, y); e.preventDefault(); }
+    function doDrawing(e) { if (!drawing) return; const [x, y] = getPos(e); ctx.lineTo(x, y); ctx.stroke(); e.preventDefault(); }
     function stopDrawing() { drawing = false; }
 
     canvas.addEventListener("mousedown", startDrawing);
     canvas.addEventListener("mousemove", doDrawing);
     window.addEventListener("mouseup", stopDrawing);
-    canvas.addEventListener("touchstart", (e) => { startDrawing(e); e.preventDefault(); });
-    canvas.addEventListener("touchmove", (e) => { doDrawing(e); e.preventDefault(); });
+    canvas.addEventListener("touchstart", startDrawing, {passive: false});
+    canvas.addEventListener("touchmove", doDrawing, {passive: false});
     canvas.addEventListener("touchend", stopDrawing);
 
     function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
     function sendDrawing() {
-      // СОЗДАЕМ БЕЛЫЙ ФОН ПЕРЕД ОТПРАВКОЙ
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = canvas.width;
-      tempCanvas.height = canvas.height;
-      const tempCtx = tempCanvas.getContext('2d');
+      try {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        const tempCtx = tempCanvas.getContext('2d');
 
-      // Заливаем белым
-      tempCtx.fillStyle = "white";
-      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-      
-      // Накладываем твой рисунок сверху
-      tempCtx.drawImage(canvas, 0, 0);
+        // Белый фон
+        tempCtx.fillStyle = "white";
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        tempCtx.drawImage(canvas, 0, 0);
 
-      // Сжимаем в JPEG (он легкий и всегда на белом фоне)
-      const dataURL = tempCanvas.toDataURL("image/jpeg", 0.3);
+        // Сжатие (чтобы влезло в лимит 4КБ)
+        const dataURL = tempCanvas.toDataURL("image/jpeg", 0.1); 
 
-      if (tg.sendData) {
-        tg.sendData(dataURL);
-        tg.close();
-      } else {
-          alert("Ошибка: Открой через кнопку в боте!");
+        if (tg.sendData) {
+          tg.sendData(dataURL);
+          tg.close();
+        } else {
+          alert("Ошибка: SDK Телеграма не найден!");
+        }
+      } catch (err) {
+        alert("Ошибка при отправке: " + err.message);
       }
     }
-
-    tg.ready();
-    tg.expand();
   </script>
 </body>
 </html>
